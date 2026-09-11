@@ -118,12 +118,12 @@ sistemats-rest-middleware/
 
 ### Project Responsibilities
 
-| Project | Role |
-|---------|------|
-| **SistemaTs.Core** | Pure C# DTOs and interface contracts. Zero framework dependencies. |
-| **SistemaTs.Infrastructure** | Implements XML generation, XSD validation, RSA encryption, ZIP compression, and MTOM SOAP transport. |
-| **SistemaTs.Api** | ASP.NET Core entry point. Translates JSON to domain workflow and returns HTTP responses. |
-| **SistemaTs.UnitTests** | Isolated tests verifying XML structure, encryption, and SOAP payload construction without network access. |
+| Project                      | Role                                                                                                      |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------- |
+| **SistemaTs.Core**           | Pure C# DTOs and interface contracts. Zero framework dependencies.                                        |
+| **SistemaTs.Infrastructure** | Implements XML generation, XSD validation, RSA encryption, ZIP compression, and MTOM SOAP transport.      |
+| **SistemaTs.Api**            | ASP.NET Core entry point. Translates JSON to domain workflow and returns HTTP responses.                  |
+| **SistemaTs.UnitTests**      | Isolated tests verifying XML structure, encryption, and SOAP payload construction without network access. |
 
 ---
 
@@ -149,7 +149,7 @@ dotnet build
 dotnet run --project src/SistemaTs.Api
 ```
 
-The API starts on the port configured in `Properties/launchSettings.json` (default: `http://localhost:5114`).
+The API starts on the port configured in `Properties/launchSettings.json` (default: `http://localhost:3001`).
 
 ### Run Tests
 
@@ -173,18 +173,18 @@ Configuration is managed via `appsettings.json` under the `SistemaTs` section:
 }
 ```
 
-| Key | Description | Default |
-|-----|-------------|---------|
-| `EndpointUrl` | SOAP endpoint URL (test or production) | Test endpoint |
-| `CertificatePath` | Path to SanitelCF.cer (resolved relative to output dir) | `SanitelCF.cer` |
-| `XsdSchemaPath` | Path to 730_precompilata.xsd (resolved relative to output dir) | `730_precompilata.xsd` |
+| Key               | Description                                                    | Default                |
+| ----------------- | -------------------------------------------------------------- | ---------------------- |
+| `EndpointUrl`     | SOAP endpoint URL (test or production)                         | Test endpoint          |
+| `CertificatePath` | Path to SanitelCF.cer (resolved relative to output dir)        | `SanitelCF.cer`        |
+| `XsdSchemaPath`   | Path to 730_precompilata.xsd (resolved relative to output dir) | `730_precompilata.xsd` |
 
 ### Endpoints
 
-| Environment | URL |
-|-------------|-----|
-| **Test** | `https://invioSS730pTest.sanita.finanze.it/InvioTelematicoSS730pMtomWeb/InvioTelematicoSS730pMtomPort` |
-| **Production** | `https://invioSS730p.sanita.finanze.it/InvioTelematicoSS730pMtomWeb/InvioTelematicoSS730pMtomPort` |
+| Environment    | URL                                                                                                    |
+| -------------- | ------------------------------------------------------------------------------------------------------ |
+| **Test**       | `https://invioSS730pTest.sanita.finanze.it/InvioTelematicoSS730pMtomWeb/InvioTelematicoSS730pMtomPort` |
+| **Production** | `https://invioSS730p.sanita.finanze.it/InvioTelematicoSS730pMtomWeb/InvioTelematicoSS730pMtomPort`     |
 
 ### Bundled Files
 
@@ -237,7 +237,7 @@ Submits a batch of healthcare expenses to the Sistema TS gateway.
           "tipoSpesa": "SR",
           "flagTipoSpesa": "1",
           "importo": 52.01,
-          "aliquotaIva": 10.00
+          "aliquotaIva": 10.0
         }
       ]
     }
@@ -249,47 +249,47 @@ Submits a batch of healthcare expenses to the Sistema TS gateway.
 
 ##### `credentials` (required)
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `username` | string | Sender username (fiscal code format) |
-| `password` | string | Sender password for Basic Auth |
-| `pincode` | string | **Plaintext** PIN (encrypted automatically before sending) |
+| Field      | Type   | Description                                                |
+| ---------- | ------ | ---------------------------------------------------------- |
+| `username` | string | Sender username (fiscal code format)                       |
+| `password` | string | Sender password for Basic Auth                             |
+| `pincode`  | string | **Plaintext** PIN (encrypted automatically before sending) |
 
 ##### `owner` (optional)
 
-| Field | Type | Validation | Description |
-|-------|------|------------|-------------|
-| `codiceRegione` | string? | `[A-Z0-9]{3}` | Region code |
-| `codiceAsl` | string? | `[A-Z0-9]{3}` | ASL code |
-| `codiceSsa` | string? | `[A-Z0-9]{5,6}` | SSA code |
-| `cfProprietario` | string? | max 256 | Owner fiscal code (**plaintext**, encrypted automatically) |
+| Field            | Type    | Validation      | Description                                                |
+| ---------------- | ------- | --------------- | ---------------------------------------------------------- |
+| `codiceRegione`  | string? | `[A-Z0-9]{3}`   | Region code                                                |
+| `codiceAsl`      | string? | `[A-Z0-9]{3}`   | ASL code                                                   |
+| `codiceSsa`      | string? | `[A-Z0-9]{5,6}` | SSA code                                                   |
+| `cfProprietario` | string? | max 256         | Owner fiscal code (**plaintext**, encrypted automatically) |
 
 ##### `expenses[]` (required, min 1)
 
-| Field | Type | Validation | Description |
-|-------|------|------------|-------------|
-| `pIva` | string | 11 digits | VAT number of the issuer |
-| `dataEmissione` | date | `yyyy-MM-dd` | Document issue date |
-| `dispositivo` | int | 1–999 | Device number |
-| `numDocumento` | string | `[A-Za-z0-9_./\\-]{1,20}` | Document number |
-| `dataPagamento` | date | `yyyy-MM-dd` | Payment date |
-| `flagPagamentoAnticipato` | int? | `1` | Advance payment flag |
-| `flagOperazione` | string | `I`, `V`, `R`, `C` | Operation type (Insert, Variation, Refund, Cancellation) |
-| `cfCittadino` | string? | max 256 | Citizen fiscal code (**plaintext**, encrypted automatically) |
-| `pagamentoTracciato` | string? | `SI`, `NO` | Tracked payment flag |
-| `tipoDocumento` | string? | `F`, `D` | Document type (Invoice, Commercial receipt) |
-| `flagOpposizione` | string? | `0`, `1` | Opposition flag |
-| `items[]` | array | min 1 | Expense line items |
+| Field                     | Type    | Validation                | Description                                                  |
+| ------------------------- | ------- | ------------------------- | ------------------------------------------------------------ |
+| `pIva`                    | string  | 11 digits                 | VAT number of the issuer                                     |
+| `dataEmissione`           | date    | `yyyy-MM-dd`              | Document issue date                                          |
+| `dispositivo`             | int     | 1–999                     | Device number                                                |
+| `numDocumento`            | string  | `[A-Za-z0-9_./\\-]{1,20}` | Document number                                              |
+| `dataPagamento`           | date    | `yyyy-MM-dd`              | Payment date                                                 |
+| `flagPagamentoAnticipato` | int?    | `1`                       | Advance payment flag                                         |
+| `flagOperazione`          | string  | `I`, `V`, `R`, `C`        | Operation type (Insert, Variation, Refund, Cancellation)     |
+| `cfCittadino`             | string? | max 256                   | Citizen fiscal code (**plaintext**, encrypted automatically) |
+| `pagamentoTracciato`      | string? | `SI`, `NO`                | Tracked payment flag                                         |
+| `tipoDocumento`           | string? | `F`, `D`                  | Document type (Invoice, Commercial receipt)                  |
+| `flagOpposizione`         | string? | `0`, `1`                  | Opposition flag                                              |
+| `items[]`                 | array   | min 1                     | Expense line items                                           |
 
 ##### `expenses[].items[]`
 
-| Field | Type | Validation | Description |
-|-------|------|------------|-------------|
-| `tipoSpesa` | string | `TK`, `FC`, `FV`, `AS`, `AD`, `SR`, `CT`, `PI`, `IC`, `AA`, `SV`, `SP` | Expense type code |
-| `flagTipoSpesa` | string? | `1`, `2` | Expense type flag |
-| `importo` | decimal | 0.01–99999.99 | Amount (2 decimal places) |
-| `aliquotaIva` | decimal? | 0.00–100.00 | VAT rate (mutually exclusive with `naturaIva`) |
-| `naturaIva` | string? | 2–10 chars | VAT nature code (mutually exclusive with `aliquotaIva`) |
+| Field           | Type     | Validation                                                             | Description                                             |
+| --------------- | -------- | ---------------------------------------------------------------------- | ------------------------------------------------------- |
+| `tipoSpesa`     | string   | `TK`, `FC`, `FV`, `AS`, `AD`, `SR`, `CT`, `PI`, `IC`, `AA`, `SV`, `SP` | Expense type code                                       |
+| `flagTipoSpesa` | string?  | `1`, `2`                                                               | Expense type flag                                       |
+| `importo`       | decimal  | 0.01–99999.99                                                          | Amount (2 decimal places)                               |
+| `aliquotaIva`   | decimal? | 0.00–100.00                                                            | VAT rate (mutually exclusive with `naturaIva`)          |
+| `naturaIva`     | string?  | 2–10 chars                                                             | VAT nature code (mutually exclusive with `aliquotaIva`) |
 
 #### Response
 
@@ -325,9 +325,7 @@ Submits a batch of healthcare expenses to the Sistema TS gateway.
 ```json
 {
   "success": false,
-  "errors": [
-    "HTTP 500: <env:Envelope>...</env:Envelope>"
-  ]
+  "errors": ["HTTP 500: <env:Envelope>...</env:Envelope>"]
 }
 ```
 
@@ -401,11 +399,11 @@ The `SanitelCF.cer` certificate (RSA 1024-bit public key) is provided by Agenzia
 
 ### Encrypted Fields
 
-| Field | Where | Description |
-|-------|-------|-------------|
-| `pincode` | SOAP `pincodeInvianteCifrato` | Sender PIN, encrypted before SOAP submission |
-| `cfProprietario` | XML `<proprietario>` and SOAP `datiProprietario` | Owner fiscal code |
-| `cfCittadino` | XML `<documentoSpesa>` | Citizen fiscal code (if provided plaintext) |
+| Field            | Where                                            | Description                                  |
+| ---------------- | ------------------------------------------------ | -------------------------------------------- |
+| `pincode`        | SOAP `pincodeInvianteCifrato`                    | Sender PIN, encrypted before SOAP submission |
+| `cfProprietario` | XML `<proprietario>` and SOAP `datiProprietario` | Owner fiscal code                            |
+| `cfCittadino`    | XML `<documentoSpesa>`                           | Citizen fiscal code (if provided plaintext)  |
 
 ### Algorithm
 
@@ -421,26 +419,26 @@ The `SanitelCF.cer` certificate (RSA 1024-bit public key) is provided by Agenzia
 
 The `kit730P_ver_20240214/` folder contains official documentation from the Ministry of Economy and Finance:
 
-| Path | Content |
-|------|---------|
-| `SanitelCF.cer` | Public certificate for encrypting sensitive fields |
-| `IndicazioniTecniche.pdf` | Core technical implementation guide |
-| `LEGGIMI.txt` | Directory overview and MTOM usage notes |
-| `TracciatiWS/WS_AsincronoInvioDati730/` | WSDL, XSD schemas for async submission |
-| `TracciatiWS/EsempiFileXmlInvioAsincrono/` | Sample XML files per category |
-| `SoggettoMedico/UtenzeTestMedico.txt` | Test credentials for medical professionals |
-| `SoggettoFarmacia/UtenzeTestFarmacia.txt` | Test credentials for pharmacies |
-| `ValidatoreXml/` | Official XML validator tool |
+| Path                                       | Content                                            |
+| ------------------------------------------ | -------------------------------------------------- |
+| `SanitelCF.cer`                            | Public certificate for encrypting sensitive fields |
+| `IndicazioniTecniche.pdf`                  | Core technical implementation guide                |
+| `LEGGIMI.txt`                              | Directory overview and MTOM usage notes            |
+| `TracciatiWS/WS_AsincronoInvioDati730/`    | WSDL, XSD schemas for async submission             |
+| `TracciatiWS/EsempiFileXmlInvioAsincrono/` | Sample XML files per category                      |
+| `SoggettoMedico/UtenzeTestMedico.txt`      | Test credentials for medical professionals         |
+| `SoggettoFarmacia/UtenzeTestFarmacia.txt`  | Test credentials for pharmacies                    |
+| `ValidatoreXml/`                           | Official XML validator tool                        |
 
 ### Test Credentials (Medico)
 
 From `kit730P_ver_20240214/SoggettoMedico/UtenzeTestMedico.txt`:
 
-| Field | Value |
-|-------|-------|
+| Field    | Value              |
+| -------- | ------------------ |
 | Username | `PROVAX00X00X000Y` |
-| Password | `Salve123` |
-| Pincode | `1234567890` |
+| Password | `Salve123`         |
+| Pincode  | `1234567890`       |
 
 ---
 
@@ -454,18 +452,18 @@ dotnet test
 
 Tests cover:
 
-| Test Class | Coverage |
-|------------|----------|
-| `XmlGeneratorTests` | XML structure, field mapping, multiple expenses, `naturaIVA` vs `aliquotaIVA` |
-| `CryptoTests` | RSA encryption output validity, different inputs produce different outputs, PKCS1 padding randomness |
-| `SoapClientTests` | Response parsing, HTTP error handling, Basic Auth header, multipart content type (all mocked) |
+| Test Class          | Coverage                                                                                             |
+| ------------------- | ---------------------------------------------------------------------------------------------------- |
+| `XmlGeneratorTests` | XML structure, field mapping, multiple expenses, `naturaIVA` vs `aliquotaIVA`                        |
+| `CryptoTests`       | RSA encryption output validity, different inputs produce different outputs, PKCS1 padding randomness |
+| `SoapClientTests`   | Response parsing, HTTP error handling, Basic Auth header, multipart content type (all mocked)        |
 
 ### Integration Testing
 
 To test against the real Sistema TS test environment:
 
 ```bash
-curl -X POST http://localhost:5114/api/v1/sistema-ts/submit \
+curl -X POST http://localhost:3001/api/v1/sistema-ts/submit \
   -H "Content-Type: application/json" \
   -d '{
     "credentials": {
@@ -503,6 +501,7 @@ The test environment's SSL certificate may have an incomplete chain. The middlew
 ### HTTP 500 / `env:Client Internal Error`
 
 This typically indicates:
+
 - Invalid or missing credentials (username/password/pincode)
 - Malformed SOAP envelope
 - Server-side rejection of the payload
@@ -512,6 +511,7 @@ Ensure you use the official test credentials from the kit folder.
 ### XSD Validation Errors (422)
 
 The middleware validates XML locally before sending. Common issues:
+
 - Missing required fields (`pIva`, `numDocumento`, `flagOperazione`)
 - Invalid `tipoSpesa` codes
 - `importo` outside range or with wrong decimal format
@@ -520,6 +520,7 @@ The middleware validates XML locally before sending. Common issues:
 ### File Not Found (Certificate/XSD)
 
 The middleware resolves files in this order:
+
 1. Absolute path (if configured)
 2. `AppContext.BaseDirectory` (build output)
 3. Current working directory

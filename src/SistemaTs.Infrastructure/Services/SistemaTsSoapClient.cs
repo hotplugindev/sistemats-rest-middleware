@@ -41,7 +41,7 @@ public sealed class SistemaTsSoapClient : ISistemaTsClient
 
         var authBytes = Encoding.UTF8.GetBytes($"{payload.Credentials.Username}:{payload.Credentials.Password}");
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, _options.EndpointUrl)
+        using var request = new HttpRequestMessage(HttpMethod.Post, _options.InvioEndpointUrl)
         {
             Content = content
         };

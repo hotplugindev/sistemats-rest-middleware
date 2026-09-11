@@ -33,7 +33,7 @@ public class SoapClientTests
         var httpClient = new HttpClient(handler);
         var options = Options.Create(new SistemaTsOptions
         {
-            EndpointUrl = "https://invioSS730pTest.sanita.finanze.it/InvioTelematicoSS730pMtomWeb/InvioTelematicoSS730pMtomPort"
+            InvioEndpointUrl = "https://invioSS730pTest.sanita.finanze.it/InvioTelematicoSS730pMtomWeb/InvioTelematicoSS730pMtomPort"
         });
         return new SistemaTsSoapClient(httpClient, options);
     }
@@ -96,7 +96,7 @@ public class SoapClientTests
         var httpClient = new HttpClient(handler);
         var options = Options.Create(new SistemaTsOptions
         {
-            EndpointUrl = "https://example.com/test"
+            InvioEndpointUrl = "https://example.com/test"
         });
         var sut = new SistemaTsSoapClient(httpClient, options);
 
@@ -128,7 +128,7 @@ public class SoapClientTests
         var httpClient = new HttpClient(handler);
         var options = Options.Create(new SistemaTsOptions
         {
-            EndpointUrl = "https://example.com/test"
+            InvioEndpointUrl = "https://example.com/test"
         });
         var sut = new SistemaTsSoapClient(httpClient, options);
 
