@@ -149,7 +149,7 @@ dotnet build
 dotnet run --project src/SistemaTs.Api
 ```
 
-The API starts on the port configured in `Properties/launchSettings.json` (default: `http://localhost:3001`).
+The API starts on the port configured in `Properties/launchSettings.json` (default: `http://localhost:8080`).
 
 ### Run Tests
 
@@ -463,7 +463,7 @@ Tests cover:
 To test against the real Sistema TS test environment:
 
 ```bash
-curl -X POST http://localhost:3001/api/v1/sistema-ts/submit \
+curl -X POST http://localhost:8080/api/v1/sistema-ts/submit \
   -H "Content-Type: application/json" \
   -d '{
     "credentials": {
