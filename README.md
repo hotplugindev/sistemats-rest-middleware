@@ -536,3 +536,5 @@ Ensure `SanitelCF.cer` and `730_precompilata.xsd` are present in `src/SistemaTs.
 - The SSL certificate validation bypass should be removed for production
 - The middleware encrypts sensitive fields (PIN, fiscal codes) before transmission
 - Basic Auth credentials are sent over HTTPS only
+
+ToStartABuild1
