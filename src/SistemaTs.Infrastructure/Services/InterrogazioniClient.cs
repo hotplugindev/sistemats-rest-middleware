@@ -1,8 +1,6 @@
 using System.Xml.Linq;
-using Microsoft.Extensions.Options;
 using SistemaTs.Core.Dtos;
 using SistemaTs.Core.Interfaces;
-using SistemaTs.Infrastructure.Configuration;
 
 namespace SistemaTs.Infrastructure.Services;
 
@@ -12,13 +10,13 @@ public sealed class InterrogazioniClient : IInterrogazioniClient
     private const string ReportMensileNs = "http://reportmensile.p730.sanita.finanze.it";
 
     private readonly HttpClient _httpClient;
-    private readonly SistemaTsOptions _options;
+    private readonly IEnvironmentSettingsProvider _environmentSettings;
     private readonly ICryptoService _cryptoService;
 
-    public InterrogazioniClient(HttpClient httpClient, IOptions<SistemaTsOptions> options, ICryptoService cryptoService)
+    public InterrogazioniClient(HttpClient httpClient, IEnvironmentSettingsProvider environmentSettings, ICryptoService cryptoService)
     {
         _httpClient = httpClient;
-        _options = options.Value;
+        _environmentSettings = environmentSettings;
         _cryptoService = cryptoService;
     }
 
@@ -52,7 +50,7 @@ public sealed class InterrogazioniClient : IInterrogazioniClient
         try
         {
             var responseBody = await SoapTransportHelper.SendSoapRequestAsync(
-                _httpClient, _options.InterrogazionePuntualeEndpointUrl, envelope,
+                _httpClient, _environmentSettings.InterrogazionePuntualeEndpointUrl, envelope,
                 InterrogazioneNs, request.Credentials, ct);
 
             return ParseInterrogazionePuntualeResponse(responseBody);
@@ -91,7 +89,7 @@ public sealed class InterrogazioniClient : IInterrogazioniClient
         try
         {
             var responseBody = await SoapTransportHelper.SendSoapRequestAsync(
-                _httpClient, _options.ReportMensileEndpointUrl, envelope,
+                _httpClient, _environmentSettings.ReportMensileEndpointUrl, envelope,
                 ReportMensileNs, request.Credentials, ct);
 
             return ParseReportMensileResponse(responseBody);

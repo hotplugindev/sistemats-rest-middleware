@@ -1,8 +1,6 @@
 using System.Xml.Linq;
-using Microsoft.Extensions.Options;
 using SistemaTs.Core.Dtos;
 using SistemaTs.Core.Interfaces;
-using SistemaTs.Infrastructure.Configuration;
 
 namespace SistemaTs.Infrastructure.Services;
 
@@ -10,25 +8,44 @@ public sealed class DocumentoSpesaSoapClient : SimpleSoapClientBase, IDocumentoS
 {
     private const string DocSpesaNs = "http://documentospesap730.sanita.finanze.it";
 
-    private readonly SistemaTsOptions _options;
+    private readonly IEnvironmentSettingsProvider _environmentSettings;
     private readonly ICryptoService _cryptoService;
 
-    public DocumentoSpesaSoapClient(HttpClient httpClient, IOptions<SistemaTsOptions> options, ICryptoService cryptoService)
+    public DocumentoSpesaSoapClient(
+        HttpClient httpClient,
+        IEnvironmentSettingsProvider environmentSettings,
+        ICryptoService cryptoService
+    )
         : base(httpClient)
     {
-        _options = options.Value;
+        _environmentSettings = environmentSettings;
         _cryptoService = cryptoService;
     }
 
-    public async Task<SincronoResultDto> InserimentoAsync(DocumentoSpesaSyncRequest request, CancellationToken ct = default)
+    public async Task<SincronoResultDto> InserimentoAsync(
+        DocumentoSpesaSyncRequest request,
+        CancellationToken ct = default
+    )
     {
         var pinCode = _cryptoService.EncryptToBase64(request.Credentials.Pincode!);
-        var body = BuildSyncBody(pinCode, request.Owner, request.Expense, "inserimentoDocumentoSpesaRequest", "idInserimentoDocumentoFiscale");
+        var body = BuildSyncBody(
+            pinCode,
+            request.Owner,
+            request.Expense,
+            "inserimentoDocumentoSpesaRequest",
+            "idInserimentoDocumentoFiscale"
+        );
         var envelope = WrapEnvelope(body, "doc", DocSpesaNs);
 
         try
         {
-            var xml = await PostSoapAsync(_options.DocumentoSpesaEndpointUrl, "inserimento.documentospesap730.sanita.finanze.it", request.Credentials, envelope, ct);
+            var xml = await PostSoapAsync(
+                _environmentSettings.DocumentoSpesaEndpointUrl,
+                "inserimento.documentospesap730.sanita.finanze.it",
+                request.Credentials,
+                envelope,
+                ct
+            );
             return ParseSyncResponse(xml, "inserimentoDocumentoSpesaResponse");
         }
         catch (HttpRequestException ex)
@@ -37,15 +54,30 @@ public sealed class DocumentoSpesaSoapClient : SimpleSoapClientBase, IDocumentoS
         }
     }
 
-    public async Task<SincronoResultDto> VariazioneAsync(DocumentoSpesaSyncRequest request, CancellationToken ct = default)
+    public async Task<SincronoResultDto> VariazioneAsync(
+        DocumentoSpesaSyncRequest request,
+        CancellationToken ct = default
+    )
     {
         var pinCode = _cryptoService.EncryptToBase64(request.Credentials.Pincode!);
-        var body = BuildSyncBody(pinCode, request.Owner, request.Expense, "variazioneDocumentoSpesaRequest", "idVariazioneDocumentoFiscale");
+        var body = BuildSyncBody(
+            pinCode,
+            request.Owner,
+            request.Expense,
+            "variazioneDocumentoSpesaRequest",
+            "idVariazioneDocumentoFiscale"
+        );
         var envelope = WrapEnvelope(body, "doc", DocSpesaNs);
 
         try
         {
-            var xml = await PostSoapAsync(_options.DocumentoSpesaEndpointUrl, "variazione.documentospesap730.sanita.finanze.it", request.Credentials, envelope, ct);
+            var xml = await PostSoapAsync(
+                _environmentSettings.DocumentoSpesaEndpointUrl,
+                "variazione.documentospesap730.sanita.finanze.it",
+                request.Credentials,
+                envelope,
+                ct
+            );
             return ParseSyncResponse(xml, "variazioneDocumentoSpesaResponse");
         }
         catch (HttpRequestException ex)
@@ -54,25 +86,35 @@ public sealed class DocumentoSpesaSoapClient : SimpleSoapClientBase, IDocumentoS
         }
     }
 
-    public async Task<SincronoResultDto> RimborsoAsync(RimborsoSincronoRequestDto request, CancellationToken ct = default)
+    public async Task<SincronoResultDto> RimborsoAsync(
+        RimborsoSincronoRequestDto request,
+        CancellationToken ct = default
+    )
     {
         var pinCode = _cryptoService.EncryptToBase64(request.Credentials.Pincode!);
-        var body = $"<doc:rimborsoDocumentoSpesaRequest>" +
-                   $"<pincode>{pinCode}</pincode>" +
-                   BuildProprietarioXml(request.Owner) +
-                   $"<idRimborsoDocumentoFiscale>" +
-                   $"<pIva>{request.PIvaOriginale}</pIva>" +
-                   $"<dataEmissione>{request.DataEmissioneOriginale:yyyy-MM-dd}</dataEmissione>" +
-                   $"<numDocumentoFiscale><dispositivo>{request.DispositivoOriginale}</dispositivo><numDocumento>{request.NumDocumentoOriginale}</numDocumento></numDocumentoFiscale>" +
-                   $"</idRimborsoDocumentoFiscale>" +
-                   $"<DocumentoSpesa>{BuildDocumentoSpesaXml(request.Expense)}</DocumentoSpesa>" +
-                   $"</doc:rimborsoDocumentoSpesaRequest>";
+        var body =
+            $"<doc:rimborsoDocumentoSpesaRequest>"
+            + $"<pincode>{pinCode}</pincode>"
+            + BuildProprietarioXml(request.Owner)
+            + $"<idRimborsoDocumentoFiscale>"
+            + $"<pIva>{request.PIvaOriginale}</pIva>"
+            + $"<dataEmissione>{request.DataEmissioneOriginale:yyyy-MM-dd}</dataEmissione>"
+            + $"<numDocumentoFiscale><dispositivo>{request.DispositivoOriginale}</dispositivo><numDocumento>{request.NumDocumentoOriginale}</numDocumento></numDocumentoFiscale>"
+            + $"</idRimborsoDocumentoFiscale>"
+            + $"<DocumentoSpesa>{BuildDocumentoSpesaXml(request.Expense)}</DocumentoSpesa>"
+            + $"</doc:rimborsoDocumentoSpesaRequest>";
 
         var envelope = WrapEnvelope(body, "doc", DocSpesaNs);
 
         try
         {
-            var xml = await PostSoapAsync(_options.DocumentoSpesaEndpointUrl, "rimborso.documentospesap730.sanita.finanze.it", request.Credentials, envelope, ct);
+            var xml = await PostSoapAsync(
+                _environmentSettings.DocumentoSpesaEndpointUrl,
+                "rimborso.documentospesap730.sanita.finanze.it",
+                request.Credentials,
+                envelope,
+                ct
+            );
             return ParseSyncResponse(xml, "rimborsoDocumentoSpesaResponse");
         }
         catch (HttpRequestException ex)
@@ -81,24 +123,34 @@ public sealed class DocumentoSpesaSoapClient : SimpleSoapClientBase, IDocumentoS
         }
     }
 
-    public async Task<SincronoResultDto> CancellazioneAsync(CancellazioneSincronoRequestDto request, CancellationToken ct = default)
+    public async Task<SincronoResultDto> CancellazioneAsync(
+        CancellazioneSincronoRequestDto request,
+        CancellationToken ct = default
+    )
     {
         var pinCode = _cryptoService.EncryptToBase64(request.Credentials.Pincode!);
-        var body = $"<doc:cancellazioneDocumentoSpesaRequest>" +
-                   $"<pincode>{pinCode}</pincode>" +
-                   BuildProprietarioXml(request.Owner) +
-                   $"<idCancellazioneDocumentoFiscale>" +
-                   $"<pIva>{request.PIva}</pIva>" +
-                   $"<dataEmissione>{request.DataEmissione:yyyy-MM-dd}</dataEmissione>" +
-                   $"<numDocumentoFiscale><dispositivo>{request.Dispositivo}</dispositivo><numDocumento>{request.NumDocumento}</numDocumento></numDocumentoFiscale>" +
-                   $"</idCancellazioneDocumentoFiscale>" +
-                   $"</doc:cancellazioneDocumentoSpesaRequest>";
+        var body =
+            $"<doc:cancellazioneDocumentoSpesaRequest>"
+            + $"<pincode>{pinCode}</pincode>"
+            + BuildProprietarioXml(request.Owner)
+            + $"<idCancellazioneDocumentoFiscale>"
+            + $"<pIva>{request.PIva}</pIva>"
+            + $"<dataEmissione>{request.DataEmissione:yyyy-MM-dd}</dataEmissione>"
+            + $"<numDocumentoFiscale><dispositivo>{request.Dispositivo}</dispositivo><numDocumento>{request.NumDocumento}</numDocumento></numDocumentoFiscale>"
+            + $"</idCancellazioneDocumentoFiscale>"
+            + $"</doc:cancellazioneDocumentoSpesaRequest>";
 
         var envelope = WrapEnvelope(body, "doc", DocSpesaNs);
 
         try
         {
-            var xml = await PostSoapAsync(_options.DocumentoSpesaEndpointUrl, "cancellazione.documentospesap730.sanita.finanze.it", request.Credentials, envelope, ct);
+            var xml = await PostSoapAsync(
+                _environmentSettings.DocumentoSpesaEndpointUrl,
+                "cancellazione.documentospesap730.sanita.finanze.it",
+                request.Credentials,
+                envelope,
+                ct
+            );
             return ParseSyncResponse(xml, "cancellazioneDocumentoSpesaResponse");
         }
         catch (HttpRequestException ex)
@@ -107,38 +159,51 @@ public sealed class DocumentoSpesaSoapClient : SimpleSoapClientBase, IDocumentoS
         }
     }
 
-    private static string BuildSyncBody(string pinCode, OwnerDto? owner, ExpenseRecordDto expense, string requestElement, string idElement)
+    private static string BuildSyncBody(
+        string pinCode,
+        OwnerDto? owner,
+        ExpenseRecordDto expense,
+        string requestElement,
+        string idElement
+    )
     {
-        return $"<doc:{requestElement}>" +
-               $"<pincode>{pinCode}</pincode>" +
-               BuildProprietarioXml(owner) +
-               $"<{idElement}>{BuildDocumentoSpesaXml(expense)}</{idElement}>" +
-               $"</doc:{requestElement}>";
+        return $"<doc:{requestElement}>"
+            + $"<pincode>{pinCode}</pincode>"
+            + BuildProprietarioXml(owner)
+            + $"<{idElement}>{BuildDocumentoSpesaXml(expense)}</{idElement}>"
+            + $"</doc:{requestElement}>";
     }
 
     private static string BuildProprietarioXml(OwnerDto? owner)
     {
-        if (owner is null) return "";
+        if (owner is null)
+            return "";
         var xml = "<Proprietario>";
-        if (!string.IsNullOrEmpty(owner.CodiceRegione)) xml += $"<codiceRegione>{owner.CodiceRegione}</codiceRegione>";
-        if (!string.IsNullOrEmpty(owner.CodiceAsl)) xml += $"<codiceAsl>{owner.CodiceAsl}</codiceAsl>";
-        if (!string.IsNullOrEmpty(owner.CodiceSsa)) xml += $"<codiceSSA>{owner.CodiceSsa}</codiceSSA>";
-        if (!string.IsNullOrEmpty(owner.CfProprietario)) xml += $"<cfProprietario>{owner.CfProprietario}</cfProprietario>";
+        if (!string.IsNullOrEmpty(owner.CodiceRegione))
+            xml += $"<codiceRegione>{owner.CodiceRegione}</codiceRegione>";
+        if (!string.IsNullOrEmpty(owner.CodiceAsl))
+            xml += $"<codiceAsl>{owner.CodiceAsl}</codiceAsl>";
+        if (!string.IsNullOrEmpty(owner.CodiceSsa))
+            xml += $"<codiceSSA>{owner.CodiceSsa}</codiceSSA>";
+        if (!string.IsNullOrEmpty(owner.CfProprietario))
+            xml += $"<cfProprietario>{owner.CfProprietario}</cfProprietario>";
         xml += "</Proprietario>";
         return xml;
     }
 
     private static string BuildDocumentoSpesaXml(ExpenseRecordDto expense)
     {
-        var xml = $"<idSpesa>" +
-                  $"<pIva>{expense.PIva}</pIva>" +
-                  $"<dataEmissione>{expense.DataEmissione:yyyy-MM-dd}</dataEmissione>" +
-                  $"<numDocumentoFiscale><dispositivo>{expense.Dispositivo}</dispositivo><numDocumento>{expense.NumDocumento}</numDocumento></numDocumentoFiscale>" +
-                  $"</idSpesa>" +
-                  $"<dataPagamento>{expense.DataPagamento:yyyy-MM-dd}</dataPagamento>";
+        var xml =
+            $"<idSpesa>"
+            + $"<pIva>{expense.PIva}</pIva>"
+            + $"<dataEmissione>{expense.DataEmissione:yyyy-MM-dd}</dataEmissione>"
+            + $"<numDocumentoFiscale><dispositivo>{expense.Dispositivo}</dispositivo><numDocumento>{expense.NumDocumento}</numDocumento></numDocumentoFiscale>"
+            + $"</idSpesa>"
+            + $"<dataPagamento>{expense.DataPagamento:yyyy-MM-dd}</dataPagamento>";
 
         if (expense.FlagPagamentoAnticipato.HasValue)
-            xml += $"<flagPagamentoAnticipato>{expense.FlagPagamentoAnticipato.Value}</flagPagamentoAnticipato>";
+            xml +=
+                $"<flagPagamentoAnticipato>{expense.FlagPagamentoAnticipato.Value}</flagPagamentoAnticipato>";
 
         if (!string.IsNullOrEmpty(expense.CfCittadino))
             xml += $"<cfCittadino>{expense.CfCittadino}</cfCittadino>";
@@ -171,7 +236,11 @@ public sealed class DocumentoSpesaSoapClient : SimpleSoapClientBase, IDocumentoS
         var doc = XDocument.Parse(xml);
         var responseEl = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == responseElement);
         if (responseEl is null)
-            return new SincronoResultDto { Success = false, Errors = new[] { $"No {responseElement} in response" } };
+            return new SincronoResultDto
+            {
+                Success = false,
+                Errors = new[] { $"No {responseElement} in response" },
+            };
 
         var esitoChiamata = GetElementValue(responseEl, "esitoChiamata") ?? "";
         var protocollo = GetElementValue(responseEl, "protocollo");
@@ -185,7 +254,12 @@ public sealed class DocumentoSpesaSoapClient : SimpleSoapClientBase, IDocumentoS
             EsitoChiamata = esitoChiamata,
             Protocollo = protocollo,
             Messaggi = messaggi,
-            Errors = success ? Array.Empty<string>() : messaggi.Where(m => m.Tipo == "E").Select(m => $"[{m.Codice}] {m.Descrizione}").ToList()
+            Errors = success
+                ? Array.Empty<string>()
+                : messaggi
+                    .Where(m => m.Tipo == "E")
+                    .Select(m => $"[{m.Codice}] {m.Descrizione}")
+                    .ToList(),
         };
     }
 }

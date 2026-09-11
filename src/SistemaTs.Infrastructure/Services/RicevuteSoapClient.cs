@@ -1,8 +1,6 @@
 using System.Xml.Linq;
-using Microsoft.Extensions.Options;
 using SistemaTs.Core.Dtos;
 using SistemaTs.Core.Interfaces;
-using SistemaTs.Infrastructure.Configuration;
 
 namespace SistemaTs.Infrastructure.Services;
 
@@ -12,13 +10,13 @@ public sealed class RicevuteSoapClient : SimpleSoapClientBase, IRicevuteClient
     private const string DettaglioNs = "http://dettaglioerrori.p730.sanita.sogei.it/";
     private const string RicevutaNs = "http://ricevutapdf.p730.sanita.sogei.it/";
 
-    private readonly SistemaTsOptions _options;
+    private readonly IEnvironmentSettingsProvider _environmentSettings;
     private readonly ICryptoService _cryptoService;
 
-    public RicevuteSoapClient(HttpClient httpClient, IOptions<SistemaTsOptions> options, ICryptoService cryptoService)
+    public RicevuteSoapClient(HttpClient httpClient, IEnvironmentSettingsProvider environmentSettings, ICryptoService cryptoService)
         : base(httpClient)
     {
-        _options = options.Value;
+        _environmentSettings = environmentSettings;
         _cryptoService = cryptoService;
     }
 
@@ -36,7 +34,7 @@ public sealed class RicevuteSoapClient : SimpleSoapClientBase, IRicevuteClient
 
         try
         {
-            var xml = await PostSoapAsync(_options.EsitoInviiEndpointUrl, "", request.Credentials, envelope, ct);
+            var xml = await PostSoapAsync(_environmentSettings.EsitoInviiEndpointUrl, "", request.Credentials, envelope, ct);
             return ParseEsitoInviiResponse(xml);
         }
         catch (HttpRequestException ex)
@@ -57,7 +55,7 @@ public sealed class RicevuteSoapClient : SimpleSoapClientBase, IRicevuteClient
 
         try
         {
-            var xml = await PostSoapAsync(_options.DettaglioErroriEndpointUrl, "", request.Credentials, envelope, ct);
+            var xml = await PostSoapAsync(_environmentSettings.DettaglioErroriEndpointUrl, "", request.Credentials, envelope, ct);
             return ParseDettaglioErroriResponse(xml);
         }
         catch (HttpRequestException ex)
@@ -78,7 +76,7 @@ public sealed class RicevuteSoapClient : SimpleSoapClientBase, IRicevuteClient
 
         try
         {
-            var xml = await PostSoapAsync(_options.RicevutaPdfEndpointUrl, "", request.Credentials, envelope, ct);
+            var xml = await PostSoapAsync(_environmentSettings.RicevutaPdfEndpointUrl, "", request.Credentials, envelope, ct);
             return ParseRicevutaPdfResponse(xml);
         }
         catch (HttpRequestException ex)

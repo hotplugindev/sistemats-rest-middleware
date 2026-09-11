@@ -1,10 +1,8 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Xml.Linq;
-using Microsoft.Extensions.Options;
 using SistemaTs.Core.Dtos;
 using SistemaTs.Core.Interfaces;
-using SistemaTs.Infrastructure.Configuration;
 
 namespace SistemaTs.Infrastructure.Services;
 
@@ -16,12 +14,12 @@ public sealed class SistemaTsSoapClient : ISistemaTsClient
     private const string RootContentId = "rootpart@soapui.org";
 
     private readonly HttpClient _httpClient;
-    private readonly SistemaTsOptions _options;
+    private readonly IEnvironmentSettingsProvider _environmentSettings;
 
-    public SistemaTsSoapClient(HttpClient httpClient, IOptions<SistemaTsOptions> options)
+    public SistemaTsSoapClient(HttpClient httpClient, IEnvironmentSettingsProvider environmentSettings)
     {
         _httpClient = httpClient;
-        _options = options.Value;
+        _environmentSettings = environmentSettings;
     }
 
     public async Task<SubmissionResultDto> InviaFileAsync(SoapSubmissionRequest payload, CancellationToken cancellationToken = default)
@@ -41,7 +39,7 @@ public sealed class SistemaTsSoapClient : ISistemaTsClient
 
         var authBytes = Encoding.UTF8.GetBytes($"{payload.Credentials.Username}:{payload.Credentials.Password}");
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, _options.InvioEndpointUrl)
+        using var request = new HttpRequestMessage(HttpMethod.Post, _environmentSettings.InvioEndpointUrl)
         {
             Content = content
         };
