@@ -1,13 +1,9 @@
-using SistemaTs.Core.Interfaces;
 using SistemaTs.Infrastructure;
-using SistemaTs.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddSistemaTsInfrastructure(builder.Configuration);
-
-builder.Services.AddSingleton<IEnvironmentSettingsProvider, EnvironmentSettingsProvider>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

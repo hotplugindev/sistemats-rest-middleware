@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+**/.git
+**/.github
+**/kit730P_ver_20240214
+**/tests
+**/*.md
+**/.gitignore

@@ -1,0 +1,11 @@
+services:
+  sistemats-middleware:
+    image: hotplugindev/sistemats-rest-middleware:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - PRODUCTION_ENVIRONMENT=false
+    restart: unless-stopped
