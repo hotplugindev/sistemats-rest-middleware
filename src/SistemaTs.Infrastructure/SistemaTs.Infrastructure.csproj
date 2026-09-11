@@ -16,6 +16,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="SistemaTs.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="SanitelCF.cer" CopyToOutputDirectory="PreserveNewest" />
     <None Include="730_precompilata.xsd" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
