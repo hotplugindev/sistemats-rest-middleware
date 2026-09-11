@@ -10,9 +10,10 @@ namespace SistemaTs.Infrastructure.Services;
 
 public sealed class SistemaTsSoapClient : ISistemaTsClient
 {
-    private static readonly XNamespace SoapEnv = "http://schemas.xmlsoap.org/soap/envelope/";
-    private static readonly XNamespace Ejb = "http://ejb.invioTelematicoSS730p.sanita.finanze.it/";
-    private static readonly XNamespace Xop = "http://www.w3.org/2004/08/xop/include";
+    private const string SoapNs = "http://schemas.xmlsoap.org/soap/envelope/";
+    private const string EjbNs = "http://ejb.invioTelematicoSS730p.sanita.finanze.it/";
+    private const string XopNs = "http://www.w3.org/2004/08/xop/include";
+    private const string RootContentId = "rootpart@soapui.org";
 
     private readonly HttpClient _httpClient;
     private readonly SistemaTsOptions _options;
@@ -25,40 +26,29 @@ public sealed class SistemaTsSoapClient : ISistemaTsClient
 
     public async Task<SubmissionResultDto> InviaFileAsync(SoapSubmissionRequest payload, CancellationToken cancellationToken = default)
     {
-        var boundary = $"uuid:{Guid.NewGuid()}";
-        var contentId = payload.NomeFileAllegato;
+        var boundary = $"----=_Part_{Random.Shared.Next(1, 999)}_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        var attachmentContentId = payload.NomeFileAllegato;
 
-        var envelope = BuildSoapEnvelope(payload, contentId);
+        var envelope = BuildSoapEnvelope(payload, attachmentContentId);
         var envelopeBytes = Encoding.UTF8.GetBytes(envelope);
 
-        using var multipartContent = new MultipartContent("related", boundary);
-        multipartContent.Headers.ContentType!.Parameters.Add(
-            new NameValueHeaderValue("type", "\"application/xop+xml\""));
-        multipartContent.Headers.ContentType.Parameters.Add(
-            new NameValueHeaderValue("start-info", "\"text/xml\""));
+        var body = BuildMultipartBody(boundary, envelopeBytes, payload.ZipContent, attachmentContentId);
 
-        var soapPart = new ByteArrayContent(envelopeBytes);
-        soapPart.Headers.ContentType = new MediaTypeHeaderValue("application/xop+xml");
-        soapPart.Headers.ContentType.CharSet = "UTF-8";
-        soapPart.Headers.Add("Content-Id", $"<{contentId}-soap>");
-        multipartContent.Add(soapPart);
-
-        var attachmentPart = new ByteArrayContent(payload.ZipContent);
-        attachmentPart.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
-        attachmentPart.Headers.Add("Content-Id", $"<{contentId}>");
-        attachmentPart.Headers.Add("Content-Transfer-Encoding", "binary");
-        multipartContent.Add(attachmentPart);
+        using var content = new ByteArrayContent(body);
+        content.Headers.Remove("Content-Type");
+        content.Headers.TryAddWithoutValidation("Content-Type",
+            $"multipart/related; type=\"application/xop+xml\"; start=\"<{RootContentId}>\"; start-info=\"text/xml\"; boundary=\"{boundary}\"");
 
         var authBytes = Encoding.UTF8.GetBytes($"{payload.Credentials.Username}:{payload.Credentials.Password}");
-        _httpClient.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Basic", Convert.ToBase64String(authBytes));
 
-        var requestUri = _options.EndpointUrl;
-        using var request = new HttpRequestMessage(HttpMethod.Post, requestUri)
+        using var request = new HttpRequestMessage(HttpMethod.Post, _options.EndpointUrl)
         {
-            Content = multipartContent
+            Content = content
         };
-        request.Headers.Add("SOAPAction", "\"\"");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(authBytes));
+        request.Headers.TryAddWithoutValidation("SOAPAction", "\"\"");
+        request.Headers.TryAddWithoutValidation("MIME-Version", "1.0");
+        request.Headers.TryAddWithoutValidation("Accept-Encoding", "gzip,deflate");
 
         var response = await _httpClient.SendAsync(request, cancellationToken);
         var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -71,69 +61,99 @@ public sealed class SistemaTsSoapClient : ISistemaTsClient
         return ParseSoapResponse(responseBody);
     }
 
+    private static byte[] BuildMultipartBody(string boundary, byte[] envelopeBytes, byte[] zipContent, string attachmentContentId)
+    {
+        using var ms = new MemoryStream();
+        var writer = new StreamWriter(ms, new UTF8Encoding(false), 4096, leaveOpen: true);
+
+        writer.Write($"--{boundary}\r\n");
+        writer.Write("Content-Type: application/xop+xml; charset=UTF-8\r\n");
+        writer.Write($"Content-Id: <{RootContentId}>\r\n");
+        writer.Write("\r\n");
+        writer.Flush();
+        ms.Write(envelopeBytes);
+        writer.Write("\r\n");
+
+        writer.Write($"--{boundary}\r\n");
+        writer.Write("Content-Type: application/zip\r\n");
+        writer.Write("Content-Transfer-Encoding: binary\r\n");
+        writer.Write($"Content-Id: <{attachmentContentId}>\r\n");
+        writer.Write("\r\n");
+        writer.Flush();
+        ms.Write(zipContent);
+        writer.Write("\r\n");
+
+        writer.Write($"--{boundary}--\r\n");
+        writer.Flush();
+
+        return ms.ToArray();
+    }
+
     private static string BuildSoapEnvelope(SoapSubmissionRequest payload, string contentId)
     {
-        var body = new XElement(Ejb + "inviaFileMtom",
-            new XElement("nomeFileAllegato", payload.NomeFileAllegato),
-            new XElement("pincodeInvianteCifrato", payload.PincodeInvianteCifrato));
+        var sb = new StringBuilder();
+        sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+        sb.Append($"<soapenv:Envelope xmlns:soapenv=\"{SoapNs}\" xmlns:ejb=\"{EjbNs}\">");
+        sb.Append("<soapenv:Header/>");
+        sb.Append("<soapenv:Body>");
+        sb.Append("<ejb:inviaFileMtom>");
+        sb.Append($"<nomeFileAllegato>{EscapeXml(payload.NomeFileAllegato)}</nomeFileAllegato>");
+        sb.Append($"<pincodeInvianteCifrato>{EscapeXml(payload.PincodeInvianteCifrato)}</pincodeInvianteCifrato>");
 
         if (payload.Owner is not null)
         {
-            var datiProprietario = new XElement("datiProprietario");
+            sb.Append("<datiProprietario>");
             if (!string.IsNullOrEmpty(payload.Owner.CodiceRegione))
-                datiProprietario.Add(new XElement("codiceRegione", payload.Owner.CodiceRegione));
+                sb.Append($"<codiceRegione>{EscapeXml(payload.Owner.CodiceRegione)}</codiceRegione>");
             if (!string.IsNullOrEmpty(payload.Owner.CodiceAsl))
-                datiProprietario.Add(new XElement("codiceAsl", payload.Owner.CodiceAsl));
+                sb.Append($"<codiceAsl>{EscapeXml(payload.Owner.CodiceAsl)}</codiceAsl>");
             if (!string.IsNullOrEmpty(payload.Owner.CodiceSsa))
-                datiProprietario.Add(new XElement("codiceSSA", payload.Owner.CodiceSsa));
+                sb.Append($"<codiceSSA>{EscapeXml(payload.Owner.CodiceSsa)}</codiceSSA>");
             if (!string.IsNullOrEmpty(payload.Owner.CfProprietario))
-                datiProprietario.Add(new XElement("cfProprietario", payload.Owner.CfProprietario));
-            body.Add(datiProprietario);
+                sb.Append($"<cfProprietario>{EscapeXml(payload.Owner.CfProprietario)}</cfProprietario>");
+            sb.Append("</datiProprietario>");
         }
 
-        body.Add(new XElement("opzionale1", payload.Opzionale1 ?? ""));
-        body.Add(new XElement("opzionale2", payload.Opzionale2 ?? ""));
-        body.Add(new XElement("opzionale3", payload.Opzionale3 ?? ""));
+        sb.Append($"<opzionale1>{EscapeXml(payload.Opzionale1 ?? "")}</opzionale1>");
+        sb.Append($"<opzionale2>{EscapeXml(payload.Opzionale2 ?? "")}</opzionale2>");
+        sb.Append($"<opzionale3>{EscapeXml(payload.Opzionale3 ?? "")}</opzionale3>");
+        sb.Append($"<documento><xop:Include xmlns:xop=\"{XopNs}\" href=\"cid:{contentId}\"/></documento>");
+        sb.Append("</ejb:inviaFileMtom>");
+        sb.Append("</soapenv:Body>");
+        sb.Append("</soapenv:Envelope>");
 
-        var documento = new XElement("documento",
-            new XElement(Xop + "Include",
-                new XAttribute("href", $"cid:{contentId}")));
-        body.Add(documento);
-
-        var envelope = new XElement(SoapEnv + "Envelope",
-            new XAttribute(XNamespace.Xmlns + "soapenv", SoapEnv.NamespaceName),
-            new XAttribute(XNamespace.Xmlns + "ejb", Ejb.NamespaceName),
-            new XElement(SoapEnv + "Header"),
-            new XElement(SoapEnv + "Body", body));
-
-        var doc = new XDocument(new XDeclaration("1.0", "UTF-8", null), envelope);
-        using var sw = new StringWriter();
-        doc.Save(sw);
-        return sw.ToString();
+        return sb.ToString();
     }
+
+    private static string EscapeXml(string value) =>
+        value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
 
     private static SubmissionResultDto ParseSoapResponse(string xml)
     {
         try
         {
             var doc = XDocument.Parse(xml);
-            var ns = doc.Root?.Name.Namespace ?? XNamespace.None;
 
-            var returnEl = doc.Descendants()
-                .FirstOrDefault(e => e.Name.LocalName == "return");
+            var faultEl = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "Fault");
+            if (faultEl is not null)
+            {
+                var faultString = faultEl.Elements().FirstOrDefault(e => e.Name.LocalName == "faultstring")?.Value ?? "Unknown SOAP fault";
+                return SubmissionResultDto.Failure($"SOAP Fault: {faultString}");
+            }
 
+            var returnEl = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "return");
             if (returnEl is null)
                 return SubmissionResultDto.Failure("Unable to parse SOAP response: no 'return' element found.");
 
-            var codiceEsito = returnEl.Element("codiceEsito")?.Value ?? "";
-            var descrizioneEsito = returnEl.Element("descrizioneEsito")?.Value ?? "";
-            var protocollo = returnEl.Element("protocollo")?.Value ?? "";
-            var dataAccoglienza = returnEl.Element("dataAccoglienza")?.Value ?? "";
-            var nomeFile = returnEl.Element("nomeFileAllegato")?.Value ?? "";
-            var dimensioneFile = returnEl.Element("dimensioneFileAllegato")?.Value ?? "";
-            var idErrore = returnEl.Element("idErrore")?.Value;
+            var codiceEsito = returnEl.Elements().FirstOrDefault(e => e.Name.LocalName == "codiceEsito")?.Value ?? "";
+            var descrizioneEsito = returnEl.Elements().FirstOrDefault(e => e.Name.LocalName == "descrizioneEsito")?.Value ?? "";
+            var protocollo = returnEl.Elements().FirstOrDefault(e => e.Name.LocalName == "protocollo")?.Value ?? "";
+            var dataAccoglienza = returnEl.Elements().FirstOrDefault(e => e.Name.LocalName == "dataAccoglienza")?.Value ?? "";
+            var nomeFile = returnEl.Elements().FirstOrDefault(e => e.Name.LocalName == "nomeFileAllegato")?.Value ?? "";
+            var dimensioneFile = returnEl.Elements().FirstOrDefault(e => e.Name.LocalName == "dimensioneFileAllegato")?.Value ?? "";
+            var idErrore = returnEl.Elements().FirstOrDefault(e => e.Name.LocalName == "idErrore")?.Value;
 
-            var isSuccess = codiceEsito == "0" || codiceEsito == "1";
+            var isSuccess = codiceEsito is "0" or "000" or "1";
 
             return new SubmissionResultDto
             {

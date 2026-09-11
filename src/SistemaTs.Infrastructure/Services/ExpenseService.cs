@@ -29,19 +29,8 @@ public sealed class ExpenseService : IExpenseService
     {
         var encryptedPincode = _cryptoService.EncryptToBase64(request.Credentials!.Pincode!);
 
-        var owner = request.Owner;
-        if (owner is not null && !string.IsNullOrEmpty(owner.CfProprietario))
-        {
-            owner = new OwnerDto
-            {
-                CodiceRegione = owner.CodiceRegione,
-                CodiceAsl = owner.CodiceAsl,
-                CodiceSsa = owner.CodiceSsa,
-                CfProprietario = _cryptoService.EncryptToBase64(owner.CfProprietario)
-            };
-        }
-
-        var xml = _xmlGenerator.GenerateXml(request);
+        var xmlRequest = BuildXmlRequest(request);
+        var xml = _xmlGenerator.GenerateXml(xmlRequest);
 
         var validationResult = _xmlValidator.Validate(xml);
         if (!validationResult.IsValid)
@@ -58,11 +47,55 @@ public sealed class ExpenseService : IExpenseService
         {
             NomeFileAllegato = attachmentName,
             PincodeInvianteCifrato = encryptedPincode,
-            Owner = owner,
+            Owner = request.Owner,
             ZipContent = zipContent,
             Credentials = request.Credentials
         };
 
         return await _soapClient.InviaFileAsync(soapRequest, cancellationToken);
+    }
+
+    private ExpenseSubmissionRequest BuildXmlRequest(ExpenseSubmissionRequest request)
+    {
+        OwnerDto? xmlOwner = null;
+        if (request.Owner is not null)
+        {
+            xmlOwner = new OwnerDto
+            {
+                CodiceRegione = request.Owner.CodiceRegione,
+                CodiceAsl = request.Owner.CodiceAsl,
+                CodiceSsa = request.Owner.CodiceSsa,
+                CfProprietario = !string.IsNullOrEmpty(request.Owner.CfProprietario)
+                    ? _cryptoService.EncryptToBase64(request.Owner.CfProprietario)
+                    : null
+            };
+        }
+
+        var xmlExpenses = request.Expenses!.Select(e => new ExpenseRecordDto
+        {
+            PIva = e.PIva,
+            DataEmissione = e.DataEmissione,
+            Dispositivo = e.Dispositivo,
+            NumDocumento = e.NumDocumento,
+            DataPagamento = e.DataPagamento,
+            FlagPagamentoAnticipato = e.FlagPagamentoAnticipato,
+            FlagOperazione = e.FlagOperazione,
+            CfCittadino = !string.IsNullOrEmpty(e.CfCittadino)
+                ? _cryptoService.EncryptToBase64(e.CfCittadino)
+                : null,
+            PagamentoTracciato = e.PagamentoTracciato,
+            TipoDocumento = e.TipoDocumento,
+            FlagOpposizione = e.FlagOpposizione,
+            Items = e.Items
+        }).ToList();
+
+        return new ExpenseSubmissionRequest
+        {
+            Credentials = request.Credentials,
+            Owner = xmlOwner,
+            AttachmentName = request.AttachmentName,
+            XmlEntryName = request.XmlEntryName,
+            Expenses = xmlExpenses
+        };
     }
 }
