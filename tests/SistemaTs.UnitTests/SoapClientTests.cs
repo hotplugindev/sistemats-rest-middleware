@@ -1,8 +1,7 @@
 using System.Net;
 using System.Text;
-using Microsoft.Extensions.Options;
 using SistemaTs.Core.Dtos;
-using SistemaTs.Infrastructure.Configuration;
+using SistemaTs.Core.Interfaces;
 using SistemaTs.Infrastructure.Services;
 
 namespace SistemaTs.UnitTests;
@@ -27,15 +26,12 @@ public class SoapClientTests
         </soapenv:Envelope>
         """;
 
-    private static SistemaTsSoapClient CreateClient(HttpStatusCode statusCode, string responseBody)
+    private static SistemaTsSoapClient CreateClient(HttpStatusCode statusCode, string responseBody, string? endpointUrl = null)
     {
         var handler = new FakeHttpMessageHandler(statusCode, responseBody);
         var httpClient = new HttpClient(handler);
-        var options = Options.Create(new SistemaTsOptions
-        {
-            InvioEndpointUrl = "https://invioSS730pTest.sanita.finanze.it/InvioTelematicoSS730pMtomWeb/InvioTelematicoSS730pMtomPort"
-        });
-        return new SistemaTsSoapClient(httpClient, options);
+        var envSettings = new FakeEnvironmentSettingsProvider(endpointUrl ?? "https://invioSS730pTest.sanita.finanze.it/InvioTelematicoSS730pMtomWeb/InvioTelematicoSS730pMtomPort");
+        return new SistemaTsSoapClient(httpClient, envSettings);
     }
 
     [Fact]
@@ -94,11 +90,8 @@ public class SoapClientTests
     {
         var handler = new FakeHttpMessageHandler(HttpStatusCode.OK, SuccessResponse);
         var httpClient = new HttpClient(handler);
-        var options = Options.Create(new SistemaTsOptions
-        {
-            InvioEndpointUrl = "https://example.com/test"
-        });
-        var sut = new SistemaTsSoapClient(httpClient, options);
+        var envSettings = new FakeEnvironmentSettingsProvider("https://example.com/test");
+        var sut = new SistemaTsSoapClient(httpClient, envSettings);
 
         var payload = new SoapSubmissionRequest
         {
@@ -126,11 +119,8 @@ public class SoapClientTests
     {
         var handler = new FakeHttpMessageHandler(HttpStatusCode.OK, SuccessResponse);
         var httpClient = new HttpClient(handler);
-        var options = Options.Create(new SistemaTsOptions
-        {
-            InvioEndpointUrl = "https://example.com/test"
-        });
-        var sut = new SistemaTsSoapClient(httpClient, options);
+        var envSettings = new FakeEnvironmentSettingsProvider("https://example.com/test");
+        var sut = new SistemaTsSoapClient(httpClient, envSettings);
 
         var payload = new SoapSubmissionRequest
         {
@@ -149,6 +139,128 @@ public class SoapClientTests
 
         Assert.NotNull(handler.LastRequest);
         Assert.Equal("multipart", handler.LastRequest!.Content!.Headers.ContentType!.MediaType!.Split('/')[0]);
+    }
+
+    [Fact]
+    public async Task InviaFileAsync_SoapFault_ReturnsFailure()
+    {
+        var faultResponse = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+              <soapenv:Body>
+                <soapenv:Fault>
+                  <faultcode>soapenv:Client</faultcode>
+                  <faultstring>Internal Error</faultstring>
+                </soapenv:Fault>
+              </soapenv:Body>
+            </soapenv:Envelope>
+            """;
+        var sut = CreateClient(HttpStatusCode.OK, faultResponse);
+
+        var payload = new SoapSubmissionRequest
+        {
+            NomeFileAllegato = "test.zip",
+            PincodeInvianteCifrato = "ENC",
+            ZipContent = new byte[] { 1 },
+            Credentials = new ProviderCredentialsDto
+            {
+                Username = "U",
+                Password = "P",
+                Pincode = "PIN"
+            }
+        };
+
+        var result = await sut.InviaFileAsync(payload);
+
+        Assert.False(result.Success);
+        Assert.Contains("SOAP Fault", result.Errors.First());
+    }
+
+    [Fact]
+    public async Task InviaFileAsync_ErrorCodiceEsito_ReturnsFailureWithErrors()
+    {
+        var errorResponse = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+              <soapenv:Body>
+                <ns2:inviaFileMtomResponse xmlns:ns2="http://ejb.invioTelematicoSS730p.sanita.finanze.it/">
+                  <return>
+                    <codiceEsito>2</codiceEsito>
+                    <descrizioneEsito>Errore validazione</descrizioneEsito>
+                    <protocollo></protocollo>
+                  </return>
+                </ns2:inviaFileMtomResponse>
+              </soapenv:Body>
+            </soapenv:Envelope>
+            """;
+        var sut = CreateClient(HttpStatusCode.OK, errorResponse);
+
+        var payload = new SoapSubmissionRequest
+        {
+            NomeFileAllegato = "test.zip",
+            PincodeInvianteCifrato = "ENC",
+            ZipContent = new byte[] { 1 },
+            Credentials = new ProviderCredentialsDto
+            {
+                Username = "U",
+                Password = "P",
+                Pincode = "PIN"
+            }
+        };
+
+        var result = await sut.InviaFileAsync(payload);
+
+        Assert.False(result.Success);
+        Assert.Equal("2", result.CodiceEsito);
+        Assert.NotEmpty(result.Errors);
+    }
+
+    [Fact]
+    public async Task InviaFileAsync_UsesCorrectEndpoint()
+    {
+        var handler = new FakeHttpMessageHandler(HttpStatusCode.OK, SuccessResponse);
+        var httpClient = new HttpClient(handler);
+        var envSettings = new FakeEnvironmentSettingsProvider("https://custom-endpoint.example.com/soap");
+        var sut = new SistemaTsSoapClient(httpClient, envSettings);
+
+        var payload = new SoapSubmissionRequest
+        {
+            NomeFileAllegato = "test.zip",
+            PincodeInvianteCifrato = "ENC",
+            ZipContent = new byte[] { 1 },
+            Credentials = new ProviderCredentialsDto
+            {
+                Username = "U",
+                Password = "P",
+                Pincode = "PIN"
+            }
+        };
+
+        await sut.InviaFileAsync(payload);
+
+        Assert.NotNull(handler.LastRequest);
+        Assert.Equal("https://custom-endpoint.example.com/soap", handler.LastRequest!.RequestUri!.ToString());
+    }
+
+    private sealed class FakeEnvironmentSettingsProvider : IEnvironmentSettingsProvider
+    {
+        private readonly string _invioUrl;
+
+        public FakeEnvironmentSettingsProvider(string invioUrl)
+        {
+            _invioUrl = invioUrl;
+        }
+
+        public bool IsProduction => false;
+        public string InvioEndpointUrl => _invioUrl;
+        public string EsitoInviiEndpointUrl => "https://test.example.com/esito";
+        public string DettaglioErroriEndpointUrl => "https://test.example.com/dettaglio";
+        public string RicevutaPdfEndpointUrl => "https://test.example.com/ricevuta";
+        public string InterrogazionePuntualeEndpointUrl => "https://test.example.com/interrogazione";
+        public string ReportMensileEndpointUrl => "https://test.example.com/report";
+        public string DocumentoSpesaEndpointUrl => "https://test.example.com/documento";
+        public string DettaglioSegnalazioneEndpointUrl => "https://test.example.com/segnalazione";
+        public string ReportSegnalazioniEndpointUrl => "https://test.example.com/report-segnalazioni";
     }
 
     private sealed class FakeHttpMessageHandler : HttpMessageHandler

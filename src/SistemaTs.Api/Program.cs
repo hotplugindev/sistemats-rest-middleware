@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddSistemaTsInfrastructure(builder.Configuration);
+
 builder.Services.AddSingleton<IEnvironmentSettingsProvider, EnvironmentSettingsProvider>();
 
 builder.Services.AddEndpointsApiExplorer();

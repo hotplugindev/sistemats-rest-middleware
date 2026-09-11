@@ -18,8 +18,6 @@ public static class DependencyInjection
             configuration.GetSection(SistemaTsOptions.SectionName)
         );
 
-        services.AddSingleton<IEnvironmentSettingsProvider, EnvironmentSettingsProvider>();
-
         services.AddSingleton<IXmlGeneratorService, XmlGeneratorService>();
         services.AddSingleton<IXmlValidationService, XmlValidationService>();
         services.AddSingleton<ICryptoService, SanitelCryptoService>();
